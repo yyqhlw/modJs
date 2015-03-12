@@ -402,24 +402,26 @@
         },
 
         checkDeps:function(){
-            
-            if(this.type == 'js'){
-                this.setDeps();
-                var cycle = checkCycle(this, this.deps)
-                if(cycle !== false){
-                    log(this.name+'和'+cycle+"模块存在循环依赖关系");
-                    return;
-                }
-
-                if(this.deps.length){                
-                    this.loadDeps();
+            var self = this;
+            //此处的作用是防止文件提前合并时，有多余的请求
+            setTimeout(function(){
+                if(self.type == 'js'){
+                    self.setDeps();
+                    var cycle = checkCycle(self, self.deps)
+                    if(cycle !== false){
+                        log(self.name+'和'+cycle+"模块存在循环依赖关系");
+                        return;
+                    }
+                    if(self.deps.length){                
+                        self.loadDeps();
+                    }else{
+                        self.complete();
+                    }
                 }else{
-                    this.complete();
+                    self.complete();
                 }
-            }else{
-
-                this.complete();
-            }
+            }, 0)
+            
         },
         loadDeps:function(){
             var self = this;
@@ -540,13 +542,10 @@
         info.data = data;
         m.setUp(info);
         m.onload();
-
-        
-
     }
 
       /*
-     框架入口
+     入口方法
      name     : [String , 要使用的模块名称]
      callback : [Function, 模块及所有依赖模块加载完成后调用的回调函数]
      */
@@ -605,6 +604,16 @@
         }
     };
 
+    /*
+        本地调试，配合console.log使用，替换线上的模块
+        name : [String , 要替换的模块名称]
+        url  : [String , 新的模块路径，一般为本地路径]
+     */
+    use.replaceMod = function(name, url){
+        delete MODULES[name];
+        var mod = (MODULES[name] = new Module(name));
+            mod.url = url;
+    }
 
     win.define = define;
     define.cmd = {};
