@@ -57,14 +57,24 @@
                 alert(msg);
             }
         }
-    }
-
+    } 
+    
     /*
         获取配置信息
         key :[String, 要获取的key值]
      */
     function getConfig(key){
         return c[key];
+    }
+
+    /*
+        获取模块版本信息
+     */
+    function getVersion(name){
+        var v = getConfig('modConfig')[name].version;
+        var v1 = getConfig('version');
+
+        return v || v1;
     }
     
 
@@ -169,8 +179,8 @@
             return false;
         }
         var script = doc.createElement("script");
-        script.src = path+'?t='+(getModConfig(name).time || new Date().getTime());
-        HEAD.insertBefore(script,HEAD.firstChild);
+        script.src = path+'?t='+(getVersion(name));
+        HEAD.appendChild(script);
 
         script.setAttribute('mid', name);
         script.setAttribute('mtype', 'modjs');
@@ -182,6 +192,10 @@
               script = null;
             }
         };
+
+        script.onerror = function(e){
+            log(name+'模块加载错误');
+        }
         
         return script;
     }
@@ -197,7 +211,7 @@
 
         ajax({
             type:'get',
-            url:path+'?t='+getModConfig(name).time,
+            url:path+'?t='+getVersion(name),
             success:function(data){
 
                 var mod = getMod(name);
@@ -207,7 +221,7 @@
                     name:name,
                     cache:modConfig.cache,
                     data:data,
-                    time:modConfig.time
+                    version:getVersion(name)
                 }
                 
                 mod.setUp(m);
@@ -278,22 +292,6 @@
         }
         return info;
     }
-
-    function initWithStorageMod(mod, info){
-        var modConfig = getConfig(mod.name);
-        info.cache = modConfig.cache;
-        info.cacheReturn = modConfig.cacheReturn;
-        if(info && c.isCache && mod.cache){
-            if(modConfig.time != info.time){
-                return;
-            }
-            
-            mod.setUp(info);
-            this.status = STATUS.LOADED;
-        }else{
-            clearLocalMod(mod);
-        }
-    }
     //从localstorage中清楚mod信息
     function clearLocalMod(mod){
         mod.localMod = null;
@@ -324,12 +322,12 @@
 
             if(mod.type == 'js'){
                 info = {
-                    time : mod.time,
+                    version : mod.version,
                     data : mod.data.toString(),
                 }
             }else{
                 info = {
-                    time : mod.time,
+                    version : mod.version,
                     data : mod.data,
                 }
             }
@@ -371,9 +369,8 @@
         //安装模块
         setUp:function(info){
             
-            this.time = info.time;
+            this.version = getVersion(this.name);
             this.cache = info.cache;
-            this.cacheReturn = info.cacheReturn  == undefined ? false : info.cacheReturn;
             this.data = info.data;
         },
         setStatus:function(status){
@@ -560,7 +557,7 @@
 
         if(m.getStatus() === 1){
             var localInfo = getLocalMod(name), modConfig = getModConfig(name);
-            if(localInfo && (localInfo.time === modConfig.time) && (c.isCache && modConfig.cache)){
+            if(localInfo && (localInfo.version === getVersion(name)) && (c.isCache && modConfig.cache)){
                 m.isLocal = true;
                 define(name, localInfo.data);               
             }else{
@@ -572,26 +569,27 @@
     }
 
     /*
-        框架配置函数
+        配置函数
         obj.isCache : 是否开启模块本地缓存, 缓存机制为localstorage, 如果应用体积过大，慎用
         obj.isDebug : 是否开始调试模式
         obj.modConfig : 模块配置
+        obj.version : 版本控制
         
         例子:
         modJs.config({
             isDebug: true,
             isCache: false,
+            version : '1.0.0'
             modConfig : {
                 zepto:{
                     path:"modJs/libs/zepto.js",
-                    time:20140710001,
+                    version : '1.0.0'
                     cache : false
                 },
                 Controller:{
                     path:'modJs/app/Controller.js',
-                    time : 20140710001,
+                    version : '1.0.0'
                     cache : true,
-                    cacheReturn : false
                 }
              
             }
